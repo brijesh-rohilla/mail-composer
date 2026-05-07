@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mail Composer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0d0e11;
+      --surface: #16181d;
+      --surface2: #1e2028;
+      --border: #2a2d38;
+      --accent: #cc785c;
+      --accent2: #d4956a;
+      --text: #e8e9ec;
+      --muted: #6b7080;
+      --label: #9ea3b0;
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 720px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+
+    input,
+    textarea {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 130px;
+      line-height: 1.6;
+    }
+
+    #subject-input {
+      min-height: unset;
+      resize: none;
+      height: auto;
+    }
+
+    button {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.8rem 2rem;
+      cursor: pointer;
+      align-self: flex-end;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background: var(--accent2);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>✉ Mail Composer</h1>
+    <div class="divider"></div>
+
+    <input id="email-input" type="email" placeholder="To — hr@company.com" oninput="parseEmail(this.value)">
+
+    <div class="row">
+      <input id="hr-name" type="text" placeholder="HR Name" oninput="refresh()">
+      <input id="company" type="text" placeholder="Company" oninput="refresh()">
+    </div>
+
+    <textarea id="subject-input" rows="1" oninput="syncSubject(this)"></textarea>
+
+    <textarea id="body-input" rows="8" oninput="syncBody(this)"></textarea>
+
+    <button onclick="send()">Open in Mail App →</button>
+  </div>
+
+  <script>
+    const DEFAULT_SUBJECT = `Application for Software Developer Position at {company}`;
+    const DEFAULT_BODY =
+      `Dear {hrName},
+
+I hope this message finds you well. I am writing to express my interest in joining {company} as a software developer.
+
+With hands-on experience in building scalable web applications and a passion for clean, efficient code, I believe I can contribute meaningfully to {company}'s engineering team.
+
+I would love the opportunity to discuss how my background aligns with your needs.
+
+Thank you for your time, {hrName}. Looking forward to hearing from you.
+
+Warm regards,
+Brijesh`;
+
+    let subjectTpl = DEFAULT_SUBJECT;
+    let bodyTpl = DEFAULT_BODY;
+
+    function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : ''; }
+
+    function parseEmail(email) {
+      const [local, domain] = email.split('@');
+      if (!domain) return;
+
+      const company = cap(domain.split('.')[0]);
+      document.getElementById('company').value = company;
+
+      let hrName;
+      if (/^hr$/i.test(local) || /^(info|careers|jobs|recruit|talent)$/i.test(local)) {
+        hrName = company + ' Team';
+      } else {
+        hrName = local.split(/[._-]/).map(cap).join(' ');
+      }
+      document.getElementById('hr-name').value = hrName;
+      refresh();
+    }
+
+    function fill(tpl) {
+      const hr = document.getElementById('hr-name').value || '{hrName}';
+      const co = document.getElementById('company').value || '{company}';
+      return tpl.replaceAll('{hrName}', hr).replaceAll('{company}', co);
+    }
+
+    function refresh() {
+      document.getElementById('subject-input').value = fill(subjectTpl);
+      document.getElementById('body-input').value = fill(bodyTpl);
+    }
+
+    function syncSubject(el) {
+      const hr = document.getElementById('hr-name').value || '{hrName}';
+      const co = document.getElementById('company').value || '{company}';
+      subjectTpl = el.value.replaceAll(hr, '{hrName}').replaceAll(co, '{company}');
+    }
+
+    function syncBody(el) {
+      const hr = document.getElementById('hr-name').value || '{hrName}';
+      const co = document.getElementById('company').value || '{company}';
+      bodyTpl = el.value.replaceAll(hr, '{hrName}').replaceAll(co, '{company}');
+    }
+
+    function send() {
+      const to = document.getElementById('email-input').value;
+      const subject = document.getElementById('subject-input').value;
+      const body = document.getElementById('body-input').value;
+      window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+
+    // Init default templates
+    refresh();
+  </script>
+</body>
+
+</html>
