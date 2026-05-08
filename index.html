@@ -85,6 +85,12 @@
       gap: 0.75rem;
     }
 
+    @media (max-width: 640px) {
+      .input-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
     input,
     textarea,
     .rich {
@@ -125,14 +131,14 @@
 
     button {
       font-family: 'Syne', sans-serif;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       font-weight: 700;
       letter-spacing: 0.06em;
       background: var(--accent);
       color: #fff;
       border: none;
       border-radius: 8px;
-      padding: 0.8rem 2rem;
+      padding: 0.65rem 1.4rem;
       cursor: pointer;
       transition: background 0.2s, transform 0.1s;
     }
@@ -152,11 +158,11 @@
     <h1>✉ Mail Composer</h1>
     <div class="divider"></div>
 
-    <div class="row">
+    <div class="row input-row">
       <input id="email-input" type="email" placeholder="To — hr@company.com" oninput="parseEmail(this.value)">
-      <input id="position" type="text" placeholder="Position" oninput="refreshAll()">
+      <input id="position" type="text" placeholder="Position" value="MERN Stack" oninput="refreshAll()">
     </div>
-    <div class="row">
+    <div class="row input-row">
       <input id="hr-name" type="text" placeholder="HR Name" oninput="refreshAll()">
       <input id="company" type="text" placeholder="Company" oninput="refreshAll()">
     </div>
@@ -165,8 +171,8 @@
     <textarea id="subject-input" rows="2" oninput="syncTpl('subject', this)"></textarea>
     <div id="body-input" class="rich" contenteditable="true" oninput="syncTpl('body', this)"></div>
     <div class="row">
-      <button id="copy-email-btn" onclick="copyRich('body-input', 'copy-email-btn')">Copy Body</button>
-      <button onclick="openMail()">Open in Mail App →</button>
+      <button id="copy-email-btn" onclick="copyRich('body-input', 'copy-email-btn')">Copy</button>
+      <button onclick="openMail()">Mail App →</button>
     </div>
 
     <div class="divider"></div>
@@ -174,84 +180,97 @@
     <h2>LinkedIn</h2>
     <div id="li-input" class="rich" contenteditable="true" oninput="syncTpl('li', this)"></div>
     <div class="row">
-      <button id="copy-li-btn" onclick="copyRich('li-input', 'copy-li-btn')">Copy Message</button>
-      <button onclick="openLinkedIn()">Open LinkedIn →</button>
+      <button id="copy-li-btn" onclick="copyRich('li-input', 'copy-li-btn')">Copy</button>
+      <button onclick="openLinkedIn()">LinkedIn →</button>
     </div>
   </div>
 
+  <script src="./tpl.js"></script>
   <script>
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
-    const TPL = {
-      subject: `Application for {position} Position at {company}`,
-      body:
-        `Dear {hrName},
+    const PLACEHOLDERS = {
+      hrName: '{hrName}',
+      company: '{company}',
+      position: '{position}'
+    };
 
-    I hope this message finds you well. I am writing to express my interest in joining {company} as a {position}. (Bold test: {hrName}, {company}, and {position} will appear bold when copied.)
+    const TPL = window.TPL;
+    const BOLD_FLAG = '__BOLD__';
+    const HR_ALIAS_RE = /^(hr|info|careers|jobs|recruit|talent)$/i;
 
-With hands-on experience in building scalable web applications and a passion for clean, efficient code, I believe I can contribute meaningfully to {company}'s engineering team.
-
-I would love the opportunity to discuss how my background aligns with your needs.
-
-Thank you for your time, {hrName}. Looking forward to hearing from you.
-
-Warm regards,
-Brijesh`,
-      li:
-        `Hi {hrName},
-
-I came across {company} and was genuinely impressed by the work your team is doing. I'm a {position} with experience in building scalable web applications and would love to explore any opportunities at {company}.
-
-Would you be open to a quick connect? I'd appreciate any guidance you can offer.
-
-Thanks,
-Brijesh`
+    const EL = {
+      email: document.getElementById('email-input'),
+      position: document.getElementById('position'),
+      hrName: document.getElementById('hr-name'),
+      company: document.getElementById('company'),
+      subject: document.getElementById('subject-input'),
+      body: document.getElementById('body-input'),
+      li: document.getElementById('li-input')
     };
 
     const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '';
-    const val = id => document.getElementById(id).value;
+
+    function getTokens() {
+      return {
+        hrName: EL.hrName.value || PLACEHOLDERS.hrName,
+        company: EL.company.value || PLACEHOLDERS.company,
+        position: EL.position.value || PLACEHOLDERS.position
+      };
+    }
+
+    function applyTokens(text, tokens) {
+      return text
+        .replaceAll(`{${BOLD_FLAG}hrName}`, tokens.hrName)
+        .replaceAll(`{${BOLD_FLAG}company}`, tokens.company)
+        .replaceAll(`{${BOLD_FLAG}position}`, tokens.position)
+        .replaceAll(PLACEHOLDERS.hrName, tokens.hrName)
+        .replaceAll(PLACEHOLDERS.company, tokens.company)
+        .replaceAll(PLACEHOLDERS.position, tokens.position);
+    }
+
+    function applyTokensToHtml(text, tokens) {
+      return text
+        .replaceAll(`{${BOLD_FLAG}hrName}`, `<strong>${tokens.hrName}</strong>`)
+        .replaceAll(`{${BOLD_FLAG}company}`, `<strong>${tokens.company}</strong>`)
+        .replaceAll(`{${BOLD_FLAG}position}`, `<strong>${tokens.position}</strong>`)
+        .replaceAll(PLACEHOLDERS.hrName, tokens.hrName)
+        .replaceAll(PLACEHOLDERS.company, tokens.company)
+        .replaceAll(PLACEHOLDERS.position, tokens.position);
+    }
 
     function parseEmail(email) {
       const [local, domain] = email.split('@');
       if (!domain) return;
       const company = cap(domain.split('.')[0]);
-      document.getElementById('company').value = company;
-      document.getElementById('hr-name').value = /^(hr|info|careers|jobs|recruit|talent)$/i.test(local)
+      EL.company.value = company;
+      EL.hrName.value = HR_ALIAS_RE.test(local)
         ? company + ' Team'
-        : local.split(/[._-]/).map(cap).join(' ');
+        : local.split(/[._-]/).map(cap).join(' ') + ` ma'am`;
       refreshAll();
     }
 
     function toHtml(tpl) {
-      const hr = val('hr-name') || '{hrName}';
-      const co = val('company') || '{company}';
-      const po = val('position') || '{position}';
+      const tokens = getTokens();
 
-      return tpl
-        .replaceAll('{hrName}', hr)
-        .replaceAll('{company}', co)
-        .replaceAll('{position}', po)
-        .replaceAll(hr, `<strong>${hr}</strong>`)
-        .replaceAll(co, `<strong>${co}</strong>`)
-        .replaceAll(po, `<strong>${po}</strong>`)
+      return applyTokensToHtml(tpl, tokens)
         .replace(/\n/g, '<br>');
     }
 
     function refreshAll() {
-      const hr = val('hr-name') || '{hrName}', co = val('company') || '{company}', po = val('position') || '{position}';
-      document.getElementById('subject-input').value = TPL.subject
-        .replaceAll('{hrName}', hr).replaceAll('{company}', co).replaceAll('{position}', po);
-      document.getElementById('body-input').innerHTML = toHtml(TPL.body);
-      document.getElementById('li-input').innerHTML = toHtml(TPL.li);
+      const tokens = getTokens();
+      EL.subject.value = applyTokens(TPL.subject, tokens);
+      EL.body.innerHTML = toHtml(TPL.body);
+      EL.li.innerHTML = toHtml(TPL.li);
     }
 
     function syncTpl(key, el) {
-      const hr = val('hr-name') || '{hrName}', co = val('company') || '{company}', po = val('position') || '{position}';
+      const tokens = getTokens();
       const plain = (el.innerText ?? el.value).replace(/\r/g, '');
       TPL[key] = plain
-        .replaceAll(hr, '{hrName}')
-        .replaceAll(co, '{company}')
-        .replaceAll(po, '{position}');
+        .replaceAll(tokens.hrName, PLACEHOLDERS.hrName)
+        .replaceAll(tokens.company, PLACEHOLDERS.company)
+        .replaceAll(tokens.position, PLACEHOLDERS.position);
     }
 
     function copyRich(srcId, btnId) {
@@ -267,7 +286,8 @@ Brijesh`
     }
 
     function openMail() {
-      const to = val('email-input'), subject = val('subject-input');
+      const to = EL.email.value;
+      const subject = EL.subject.value;
       // body excluded — use "Copy Body" then paste for bold formatting
       // &body=${encodeURIComponent(document.getElementById('body-input').innerText)}
       window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}`;
