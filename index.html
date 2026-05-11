@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@400;500&family=Roboto:wght@400;500&family=Source+Sans+3:wght@400;600&display=swap');
 
     *,
     *::before,
@@ -129,6 +129,18 @@
       min-height: 180px;
     }
 
+    #body-input {
+      font-family: 'Roboto', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #li-input {
+      font-family: 'Source Sans 3', 'Source Sans Pro', Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
     button {
       font-family: 'Syne', sans-serif;
       font-size: 0.8rem;
@@ -160,7 +172,7 @@
 
     <div class="row input-row">
       <input id="email-input" type="email" placeholder="To — hr@company.com" oninput="parseEmail(this.value)">
-      <input id="position" type="text" placeholder="Position" value="MERN Stack" oninput="refreshAll()">
+      <input id="position" type="text" placeholder="Position" value="MERN Stack Developer" oninput="refreshAll()">
     </div>
     <div class="row input-row">
       <input id="hr-name" type="text" placeholder="HR Name" oninput="refreshAll()">
@@ -273,16 +285,68 @@
         .replaceAll(tokens.position, PLACEHOLDERS.position);
     }
 
-    function copyRich(srcId, btnId) {
-      const html = document.getElementById(srcId).innerHTML;
-      navigator.clipboard.write([
-        new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }) })
-      ]).then(() => {
-        const btn = document.getElementById(btnId);
-        const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = orig, 2000);
-      });
+    function flashCopyState(btnId, text) {
+      const btn = document.getElementById(btnId);
+      const orig = btn.textContent;
+      btn.textContent = text;
+      setTimeout(() => btn.textContent = orig, 1600);
+    }
+
+    function fallbackCopyNode(node) {
+      const selection = window.getSelection();
+      const previousRanges = [];
+      for (let i = 0; i < selection.rangeCount; i++) {
+        previousRanges.push(selection.getRangeAt(i));
+      }
+
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      let copied = false;
+      try {
+        copied = document.execCommand('copy');
+      } catch (_) {
+        copied = false;
+      }
+
+      selection.removeAllRanges();
+      previousRanges.forEach(r => selection.addRange(r));
+      return copied;
+    }
+
+    async function copyRich(srcId, btnId) {
+      const node = document.getElementById(srcId);
+      const html = node.innerHTML;
+      const text = node.innerText;
+
+      try {
+        if (window.ClipboardItem && navigator.clipboard?.write) {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              'text/html': new Blob([html], { type: 'text/html' }),
+              'text/plain': new Blob([text], { type: 'text/plain' })
+            })
+          ]);
+          flashCopyState(btnId, 'Copied!');
+          return;
+        }
+
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          flashCopyState(btnId, 'Copied!');
+          return;
+        }
+      } catch (_) {
+        // If secure-context clipboard APIs fail, fall through to selection copy.
+      }
+
+      if (fallbackCopyNode(node)) {
+        flashCopyState(btnId, 'Copied!');
+      } else {
+        flashCopyState(btnId, 'Copy failed');
+      }
     }
 
     function openMail() {
